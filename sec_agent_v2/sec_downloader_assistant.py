@@ -82,6 +82,11 @@ class SecDownloaderAssistant:
             thread_id=thread.id, assistant_id=self._download_assistant.id
         )
 
+        messages = list(self._client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+        if len(messages) > 0:
+            if len(messages[0].content) > 0:
+                message_content = messages[0].content[0].text
+
         if run.status == "requires_action":
             for tool in run.required_action.submit_tool_outputs.tool_calls:
                 if tool.function.name == "get_sec_filing":
@@ -98,7 +103,12 @@ class SecDownloaderAssistant:
                         period_of_report=period_of_report,
                     )
         elif run.status == "completed":
-            print(f"Status: expected requires_action but got {run.status}")
+            messages = list(self._client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
+            message_content = ""
+            if len(messages) > 0:
+                if len(messages[0].content) > 0:
+                    message_content = messages[0].content[0].text.value
+            print(f"Status: expected requires_action but got {run.status} with message {message_content}")
         else:
             print(f"Status: expected requires_action but got {run.status}")
         return file_list
