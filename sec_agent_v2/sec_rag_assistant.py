@@ -1,7 +1,7 @@
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional, Dict
 
 """
 openai based assistant that uses openai's RAG pipeline to answer SEC
@@ -27,7 +27,7 @@ class SecRagAssistant:
             tools=[{"type": "file_search"}],
         )
 
-    def ask_question(self, file_list: List[str], question: str) -> str:
+    def ask_question(self, file_list: List[str], messages: Optional[List[Dict]] = None,) -> str:
 
         vector_store = self._client.beta.vector_stores.create(
             name="Financial Statements"
@@ -47,12 +47,7 @@ class SecRagAssistant:
         )
 
         thread = self._client.beta.threads.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": question,
-                }
-            ]
+            messages=messages
         )
 
         run = self._client.beta.threads.runs.create_and_poll(

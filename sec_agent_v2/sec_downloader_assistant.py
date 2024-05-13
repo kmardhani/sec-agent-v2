@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 import json
-from typing import List, Union
+from typing import List, Union, Optional, Dict, Tuple
 from openai import OpenAI
 from .get_sec_filing import (
     get_sec_filing,
@@ -67,25 +67,32 @@ class SecDownloaderAssistant:
             ],
         )
 
-    def download_sec_filings(self, prompt: str) -> List[str]:
+    def download_sec_filings(self, messages: Optional[List[Dict]] = None) -> Tuple[List[str], str]:
 
         file_list = []
+        msg = ""
 
-        thread = self._client.beta.threads.create()
-        message = self._client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt,
+        # messages list must not be None
+        if messages is None:
+            msg = "Internal Error:  Messages can not be None"
+            return file_list, msg
+        
+        # message list can not contain empty content
+        for message in messages:
+            if message['content'] == '':
+                 messages.remove(message)
+
+        # messages list must have atleast 1 message
+        if len(messages) < 1:
+            msg = "Internal Error: Messages list can not be empty"
+
+        thread = self._client.beta.threads.create(
+            messages=messages
         )
 
         run = self._client.beta.threads.runs.create_and_poll(
             thread_id=thread.id, assistant_id=self._download_assistant.id
         )
-
-        messages = list(self._client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-        if len(messages) > 0:
-            if len(messages[0].content) > 0:
-                message_content = messages[0].content[0].text
 
         if run.status == "requires_action":
             for tool in run.required_action.submit_tool_outputs.tool_calls:
@@ -102,13 +109,15 @@ class SecDownloaderAssistant:
                         report_type=report_type,
                         period_of_report=period_of_report,
                     )
+                    if len(file_list) > 0:
+                        msg = f"Downloaded {len(file_list)} files"
+                    else:
+                        msg = "No matching file(s) found for this criteria"
         elif run.status == "completed":
             messages = list(self._client.beta.threads.messages.list(thread_id=thread.id, run_id=run.id))
-            message_content = ""
             if len(messages) > 0:
                 if len(messages[0].content) > 0:
-                    message_content = messages[0].content[0].text.value
-            print(f"Status: expected requires_action but got {run.status} with message {message_content}")
+                    msg = messages[0].content[0].text.value
         else:
-            print(f"Status: expected requires_action but got {run.status}")
-        return file_list
+            msg = f"Error status: {run.status}"
+        return file_list, msg

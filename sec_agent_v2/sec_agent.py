@@ -39,14 +39,14 @@ class SecAgent(ConversableAgent):
         
         print(f"Promt = {prompt}")
 
-        file_list = self._dl_assistant.download_sec_filings(prompt=prompt)
+        file_list, msg = self._dl_assistant.download_sec_filings(messages=messages)
         print(f"Files downloded: {file_list}")
 
         if len(file_list) > 0:
             response = self._rag_assistant.ask_question(
-                file_list=file_list, question=prompt
+                file_list=file_list, messages=messages
             )
         else:
-            response = "Unable to answer this question."
+            response = msg
     
         return True, response
